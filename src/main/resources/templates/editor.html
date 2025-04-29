@@ -1,0 +1,428 @@
+
+<!DOCTYPE html>
+<html lang="en" xmlns:th = "https://www.thymeleaf.org/">
+<head>
+    <meta charset="UTF-8">
+    <title>Collaborative Code Editor</title>
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+          font-family: 'Segoe UI', sans-serif;
+          background-color: #0e0e0e;
+          color: #ffffff;
+          margin: 20px;
+        }
+
+        h2 {
+          color: #4ade80; /* Green */
+        }
+
+        input, select, textarea, button {
+          border-radius: 6px;
+          border: none;
+          padding: 8px 12px;
+          margin: 5px;
+        }
+
+        input, select, textarea {
+          background-color: #1e1e1e;
+          color: white;
+          border: 1px solid #333;
+        }
+
+        button {
+          background-color: #4ade80;
+          color: #0e0e0e;
+          font-weight: bold;
+          cursor: pointer;
+        }
+
+        button:hover {
+          background-color: #22c55e;
+        }
+
+        .chat-toggle-btn {
+          position: fixed;
+          bottom: 20px;
+          right: 20px;
+          z-index: 9999;
+          background-color: #28a745; /* Modern green */
+          color: white;
+          border: none;
+          padding: 10px 15px;
+          border-radius: 8px;
+          font-weight: bold;
+          cursor: pointer;
+          box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+          transition: background-color 0.3s ease;
+        }
+
+        .chat-toggle-btn:hover {
+          background-color: #218838; /* Darker green on hover */
+        }
+
+        .chat-panel {
+          position: fixed;
+          top: 0;
+          right: 0;
+          height: 100%;
+          width: 320px;
+          background-color: #ffffff;
+          border-left: 1px solid #ced4da;
+          padding: 20px;
+          box-shadow: -2px 0 10px rgba(0, 0, 0, 0.2);
+          display: none;
+          z-index: 9998;
+        }
+
+        .chat-box {
+          height: 300px;
+          border: 1px solid #ced4da;
+          border-radius: 5px;
+          overflow-y: auto;
+          padding: 10px;
+          background-color: #f8f9fa;
+          color: black; /* Make all chat text black */
+        }
+
+        #editorContainer {
+          display: flex;
+          max-width: calc(100% - 340px);
+          margin-top: 20px;
+          background-color: #1e1e1e;
+          border-radius: 8px;
+          overflow: hidden;
+          box-shadow: 0 0 10px rgba(0, 255, 0, 0.1);
+        }
+
+        #lineNumbers {
+          width: 40px;
+          background-color: #111;
+          color: #888;
+          padding: 10px;
+          text-align: right;
+          border-right: 1px solid #333;
+          user-select: none;
+        }
+
+        #codeEditor {
+          width: 100%;
+          padding: 10px;
+          background-color: #1e1e1e;
+          color: #f1f1f1;
+          border: none;
+          resize: none;
+          font-family: monospace;
+          font-size: 14px;
+          line-height: 1.5;
+        }
+
+        textarea:focus {
+          outline: none;
+        }
+
+        label {
+          margin-left: 5px;
+          margin-right: 5px;
+        }
+
+        #roomIdInput {
+          width: 220px;
+        }
+
+        /* New I/O styling */
+        .io-area {
+          width: 100%;
+          background-color: #1e1e1e;
+          color: #f1f1f1;
+          border: 1px solid #333;
+          border-radius: 6px;
+          padding: 8px;
+          font-family: monospace;
+          font-size: 14px;
+          margin-top: 10px;
+          resize: vertical;
+        }
+    </style>
+</head>
+<body>
+<h2>Collaborative Code Editor</h2>
+<p th:text="'Logged in as: ' + ${username}">Username not found</p>
+<!-- Chat Toggle Button -->
+<button class="btn chat-toggle-btn" onclick="toggleChat()">Chat</button>
+
+<!-- Chat Panel -->
+<div id="chatPanel" class="chat-panel">
+    <h5 class="text-center">Real-time Chat</h5>
+    <div id="chat" class="chat-box"></div>
+    <label class="form-label" style="color: black;" >Name: <span th:text="${username}" style="color: black;">User</span></label>
+
+    <input type="hidden" id="senderInput" th:value="${username}"  form="commitForm" required/>
+    <input id="messageInput" type="text" class="form-control mb-2" placeholder="Your message ..." />
+    <button id="sendMessage" class="btn btn-success w-100">Send</button>
+</div>
+
+<!-- Controls -->
+<div>
+    <label>Room ID:</label>
+    <input type="text" id="roomIdInput" placeholder="Enter or generate Room ID" />
+    <button id="roomBtn" onclick="generateRoomId()">Generate Room ID</button>
+    <button onclick="joinRoom()">Join Room</button>
+</div>
+
+<div>
+    <label for="language">Choose Language:</label>
+    <select id="language">
+        <option value="java">Java</option>
+        <option value="cpp">C++</option>
+        <option value="js">JavaScript</option>
+        <option value="cs">C#</option>
+        <option value="py">Python</option>
+    </select>
+    <button onclick="document.getElementById('fileInput').click()">Upload</button>
+    <button onclick="downloadFile()">Download</button>
+    <input type="file" id="fileInput" style="display: none" onchange="handleUpload(event)" />
+</div>
+
+<form id="commitForm" th:action="@{/commit}" method="post">
+    <input type="hidden" id="fileIdInput" name="roomId" th:value="${roomId}"/>
+    <input type="hidden" id="usernameInput" name="username" th:value="${username}" />
+    <input type="hidden" id="lang" name="language" th:value="${language}" />
+
+    <div id="editorContainer">
+        <pre id="lineNumbers">1</pre>
+        <textarea id="codeEditor" name="content" rows="10" cols="50" required> </textarea>
+    </div>
+
+    <label for="commitMsg">Commit Message:</label>
+    <input type="text" id="commitMsg" name="commitMsg" required />
+    <button type="submit">Commit Changes</button>
+</form>
+
+<label for="files">Files:</label>
+<select id="files">
+    <option value="">Select a file</option>
+</select>
+
+<label for="versions">Versions:</label>
+<select id="versions">
+    <option value="">Select a version</option>
+</select>
+
+<!-- New Run / I/O Panel -->
+<div class="mt-4">
+    <button id="runBtn">Run ▶️</button>
+    <label for="stdin">Stdin:</label><br/>
+    <textarea id="stdin" class="io-area" rows="4" placeholder="Program input (optional)"></textarea>
+    <label for="stdout">Output:</label><br/>
+    <textarea id="stdout" class="io-area" rows="6" readonly placeholder="Program output will appear here"></textarea>
+</div>
+
+<script>
+    let stompClient = null;
+    let chatClient = null;
+    let roomId = null;
+    let isLocalChange = false;
+
+    const editor = document.getElementById('codeEditor');
+    const lineNumbers = document.getElementById('lineNumbers');
+
+    function generateRoomId() {
+        roomId = 'room-' + Math.random().toString(36).substr(2, 6);
+        document.getElementById('roomIdInput').value = roomId;
+        document.getElementById('fileIdInput').value = roomId;
+        connectToRoom();
+        fetch('/file/create', {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain' },
+            body: roomId
+        });
+    }
+
+    function joinRoom() {
+        roomId = document.getElementById('roomIdInput').value.trim();
+        if (roomId) connectToRoom();
+    }
+
+    function connectToRoom() {
+        const socket = new SockJS('/ws');
+        stompClient = Stomp.over(socket);
+        stompClient.connect({}, frame => {
+            stompClient.subscribe('/topic/edit/' + roomId, message => {
+                const payload = JSON.parse(message.body);
+                isLocalChange = true;
+                editor.value = payload.text;
+                updateLineNumbers();
+                isLocalChange = false;
+            });
+        });
+    }
+
+    editor.addEventListener('input', () => {
+        updateLineNumbers();
+        if (!isLocalChange && stompClient && stompClient.connected) {
+            stompClient.send("/app/edit/" + roomId, {}, JSON.stringify({ text: editor.value }));
+        }
+    });
+
+    document.addEventListener("DOMContentLoaded", () => {
+        document.getElementById('commitForm').addEventListener('submit', e => {
+            e.preventDefault();
+            const payload = {
+                roomId: document.getElementById('fileIdInput').value,
+                username: document.getElementById('usernameInput').value,
+                language: document.getElementById('lang').value,
+                content: document.getElementById('codeEditor').value,
+                commitMsg: document.getElementById('commitMsg').value
+            };
+            fetch(document.getElementById('commitForm').action, {
+                method: 'POST',
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            })
+            .then(r => r.ok ? alert("Changes committed successfully!") : alert("Error committing changes."))
+            .catch(() => alert("Something went wrong!"));
+        });
+    });
+
+    function updateLineNumbers() {
+        const lines = editor.value.split('\n').length;
+        lineNumbers.textContent = Array.from({length: lines}, (_, i) => i+1).join('\n');
+    }
+
+    function handleUpload(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = e => { editor.value = e.target.result; updateLineNumbers(); };
+        reader.readAsText(file);
+    }
+
+    function downloadFile() {
+        const language = document.getElementById('language').value;
+        const code = editor.value;
+        const extensionMap = { java:"java", cpp:"cpp", js:"js", cs:"cs", py:"py" };
+        const blob = new Blob([code], { type: "text/plain;charset=utf-8" });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = `code.${extensionMap[language]}`;
+        link.click();
+    }
+
+    function setConnected(connected) {
+        document.getElementById('sendMessage').disabled = !connected;
+    }
+
+    function connect() {
+        const socket = new SockJS('/chat');
+        chatClient = Stomp.over(socket);
+        chatClient.connect({}, () => {
+            setConnected(true);
+            chatClient.subscribe(`/topic/room/${roomId}`, msg => showMessage(JSON.parse(msg.body)));
+        });
+    }
+
+    function showMessage(message) {
+        const chat = document.getElementById('chat');
+        const msg = document.createElement('div');
+        msg.textContent = `${message.sender}: ${message.content}`;
+        msg.className = "border-bottom mb-1";
+        chat.appendChild(msg);
+        chat.scrollTop = chat.scrollHeight;
+    }
+
+    function sendMessage() {
+        const chatMessage = {
+            sender: document.getElementById('senderInput').value,
+            content: document.getElementById('messageInput').value,
+            room: roomId
+        };
+        chatClient.send("/app/sendMessage", {}, JSON.stringify(chatMessage));
+        document.getElementById('messageInput').value = '';
+    }
+    document.getElementById('sendMessage').onclick = sendMessage;
+
+    function toggleChat() {
+        const panel = document.getElementById('chatPanel');
+        panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+        connect();
+    }
+
+// Load file list when page is ready
+window.onload = () => {
+    const fileSelect = document.getElementById('files');
+    const versionSelect = document.getElementById('versions');
+
+    // Load files
+    fetch('/file/retrieve')
+        .then(r => r.json())
+        .then(files => {
+            files.forEach(f => {
+                const opt = document.createElement('option');
+                opt.value = f.id;
+                opt.textContent = f.id;
+                fileSelect.appendChild(opt);
+            });
+            console.log("Files loaded:", files);
+        });
+
+    // Set up event listener AFTER the files are loaded
+    fileSelect.addEventListener('change', function() {
+        versionSelect.innerHTML = '<option value="">Select a version</option>';
+        if (!this.value) return;
+
+        fetch(`/commits/by-file/${this.value}`)
+            .then(r => r.json())
+            .then(commits => {
+                console.log("Commits loaded:", commits);
+                commits.forEach(c => {
+                    const opt = document.createElement('option');
+                    opt.value = c.version;
+                    opt.textContent = c.version;
+                    versionSelect.appendChild(opt);
+                });
+            })
+            .catch(error => {
+                console.error('Error loading commits:', error);
+            });
+    });
+};
+
+
+    // --- Run Button Logic ---
+    document.getElementById('runBtn').addEventListener('click', () => {
+        const code = editor.value;
+        const langSel = document.getElementById('language').value;
+        const stdin = document.getElementById('stdin').value;
+        const langMap = {
+            java:   'java',
+            cpp:    'cpp17',
+            js:     'nodejs',
+            cs:     'csharp',
+            py:     'python3'
+        };
+
+        fetch('/run', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                code:     code,
+                language: langMap[langSel],
+                stdin:    stdin
+            })
+        })
+        .then(r => r.json())
+        .then(res => {
+            document.getElementById('stdout').value =
+                (res.output || '') +
+                (res.error ? '\nError: ' + res.error : '');
+        })
+        .catch(err => {
+            document.getElementById('stdout').value = 'Request failed: ' + err;
+        });
+    });
+</script>
+</body>
+</html>
