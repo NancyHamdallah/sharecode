@@ -9,7 +9,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 public class EditorwithpayloadApplication {
 
 	public static void main(String[] args) {
-
+/*
 		if (System.getenv("RAILWAY_STATIC_URL") == null) {
 			Dotenv dotenv = Dotenv.configure().ignoreIfMissing().load();
 
@@ -27,6 +27,8 @@ public class EditorwithpayloadApplication {
 		}
 
 
+
+ */
 		SpringApplication.run(EditorwithpayloadApplication.class, args);
 
 
