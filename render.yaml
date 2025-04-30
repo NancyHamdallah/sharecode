@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: springboot-web-app
+    name: sharecode
     env: static
     buildCommand: ./mvnw clean package
     startCommand: java -jar target/*.jar
