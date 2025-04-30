@@ -26,6 +26,10 @@ public class SupabaseStorageServiceImpl implements SupabaseStorageService {
 
     public boolean uploadFile(String filePath, String content) {
         try {
+            System.out.println("Supabase URL: " + supabaseUrl);
+            System.out.println("API Key: " + apiKey);
+            System.out.println("Bucket Name: " + bucketName);
+
             String endpoint = String.format("%s/storage/v1/object/%s/%s", supabaseUrl, bucketName, filePath);
 
             HttpHeaders headers = new HttpHeaders();

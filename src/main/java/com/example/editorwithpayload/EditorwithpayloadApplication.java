@@ -27,6 +27,7 @@ public class EditorwithpayloadApplication {
 
 		 */
 		SpringApplication.run(EditorwithpayloadApplication.class, args);
+
 	}
 
 
