@@ -31,6 +31,10 @@ public class CommitServiceImpl implements CommitService {
     private CommitRepository commitRepository;
     @Autowired
     private SupabaseStorageService storageService;
+
+    @Value("${supabase.url}")
+    private String supabaseUrl;
+
     @Value("${supabase.bucket.name}")
     private String bucketName;
 
@@ -50,7 +54,7 @@ public class CommitServiceImpl implements CommitService {
         boolean uploaded = storageService.uploadFile(fileName, commitContent);
         if (!uploaded) throw new RuntimeException("Failed to upload content to Supabase");
 
-        String publicUrl = "https://YOUR_PROJECT_ID.supabase.co/storage/v1/object/public/" + bucketName + "/" + fileName;
+        String publicUrl = supabaseUrl + "/storage/v1/object/public/" + bucketName + "/" + fileName;
 
         Commit commit = new Commit();
         commit.setCommitMsg(commitDTO.getCommitMsg());

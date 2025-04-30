@@ -1,6 +1,7 @@
 package com.example.editorwithpayload;
 
 import io.github.cdimascio.dotenv.Dotenv;
+import jakarta.annotation.PostConstruct;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
@@ -8,7 +9,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 public class EditorwithpayloadApplication {
 
 	public static void main(String[] args) {
-		/*
+
 		if (System.getenv("RAILWAY_STATIC_URL") == null) {
 			Dotenv dotenv = Dotenv.configure().ignoreIfMissing().load();
 
@@ -25,9 +26,14 @@ public class EditorwithpayloadApplication {
 			System.setProperty("JDOODLE_CLIENT_SECRET", dotenv.get("JDOODLE_CLIENT_SECRET"));
 		}
 
-		 */
+
 		SpringApplication.run(EditorwithpayloadApplication.class, args);
 
+
+	}
+	@PostConstruct
+	public void printMongoUri() {
+		System.out.println("MONGODB_URI = " + System.getenv("MONGODB_URI"));
 	}
 
 
