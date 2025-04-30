@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: springboot-web-app
+    env: static
+    buildCommand: ./mvnw clean package
+    startCommand: java -jar target/*.jar
+    branch: main
+    plan: free
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
