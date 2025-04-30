@@ -8,6 +8,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 public class EditorwithpayloadApplication {
 
 	public static void main(String[] args) {
+		/*
 		if (System.getenv("RAILWAY_STATIC_URL") == null) {
 			Dotenv dotenv = Dotenv.configure().ignoreIfMissing().load();
 
@@ -23,6 +24,8 @@ public class EditorwithpayloadApplication {
 			System.setProperty("JDOODLE_CLIENT_ID", dotenv.get("JDOODLE_CLIENT_ID"));
 			System.setProperty("JDOODLE_CLIENT_SECRET", dotenv.get("JDOODLE_CLIENT_SECRET"));
 		}
+
+		 */
 		SpringApplication.run(EditorwithpayloadApplication.class, args);
 	}
 
