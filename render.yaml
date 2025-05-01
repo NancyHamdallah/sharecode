@@ -1,7 +1,7 @@
 services:
   - type: web
-    name: spring-boot-app
-    env: java
+    name: sharecode
+    runtime: java
     buildCommand: ./mvnw clean install  # or ./gradlew build if using Gradle
     startCommand: java -jar target/*.jar  # adjust the path if needed
     envVars:
@@ -10,3 +10,4 @@ services:
       - key: SPRING_PROFILES_ACTIVE
         value: production
     autoDeploy: true
+
