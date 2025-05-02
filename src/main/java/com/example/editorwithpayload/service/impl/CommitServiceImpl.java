@@ -17,7 +17,9 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 @RequiredArgsConstructor
@@ -38,33 +40,45 @@ public class CommitServiceImpl implements CommitService {
     @Value("${supabase.bucket.name}")
     private String bucketName;
 
+    private final Map<Long, Object> locks = new ConcurrentHashMap<>();
     @Override
+
+
     public Commit createCommit(CommitDTO commitDTO) {
-        Optional<File> file = fileRepository.findById(commitDTO.getRoomId());
-        System.out.println("fileId:"+file.get().getId());
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        User user = userRepository.findByUsername(username);
+        String fileId = commitDTO.getRoomId();
+        Object lock = locks.computeIfAbsent(Long.valueOf(fileId), id -> new Object());
 
-        Commit latest = commitRepository.findTopByFileIdOrderByVersionDesc(file.get());
-        int newVersion = (latest != null) ? latest.getVersion() + 1 : 1;
-        String commitContent = commitDTO.getContent();
-        String fileExtension = commitDTO.getLanguage(); // "java", "cs", etc.
-        String fileName = "files/" + commitDTO.getRoomId() + "/v" + newVersion + "." + fileExtension;
+        synchronized (lock) {
+            Optional<File> file = fileRepository.findById(fileId);
+            if (file.isEmpty()) throw new RuntimeException("File not found");
+            System.out.println("fileId:" + file.get().getId());
 
-        boolean uploaded = storageService.uploadFile(fileName, commitContent);
-        if (!uploaded) throw new RuntimeException("Failed to upload content to Supabase");
+            String username = SecurityContextHolder.getContext().getAuthentication().getName();
+            User user = userRepository.findByUsername(username);
 
-        String publicUrl = supabaseUrl + "/storage/v1/object/public/" + bucketName + "/" + fileName;
+            Commit latest = commitRepository.findTopByFileIdOrderByVersionDesc(file.get());
+            int newVersion = (latest != null) ? latest.getVersion() + 1 : 1;
 
-        Commit commit = new Commit();
-        commit.setCommitMsg(commitDTO.getCommitMsg());
-        commit.setVersion(newVersion);
-        commit.setUrlLink(publicUrl);
-        commit.setUserId(user);
-        commit.setFileId(file.get());
+            String commitContent = commitDTO.getContent();
+            String fileExtension = commitDTO.getLanguage();
+            String fileName = "files/" + fileId + "/v" + newVersion + "." + fileExtension;
 
-        return commitRepository.save(commit);
+            boolean uploaded = storageService.uploadFile(fileName, commitContent);
+            if (!uploaded) throw new RuntimeException("Failed to upload content to Supabase");
+
+            String publicUrl = supabaseUrl + "/storage/v1/object/public/" + bucketName + "/" + fileName;
+
+            Commit commit = new Commit();
+            commit.setCommitMsg(commitDTO.getCommitMsg());
+            commit.setVersion(newVersion);
+            commit.setUrlLink(publicUrl);
+            commit.setUserId(user);
+            commit.setFileId(file.get());
+
+            return commitRepository.save(commit);
+        }
     }
+
 
 
     @Override
