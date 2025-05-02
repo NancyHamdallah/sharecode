@@ -40,13 +40,13 @@ public class CommitServiceImpl implements CommitService {
     @Value("${supabase.bucket.name}")
     private String bucketName;
 
-    private final Map<Long, Object> locks = new ConcurrentHashMap<>();
+    private final Map<String, Object> locks = new ConcurrentHashMap<>();
     @Override
 
 
     public Commit createCommit(CommitDTO commitDTO) {
         String fileId = commitDTO.getRoomId();
-        Object lock = locks.computeIfAbsent(Long.valueOf(fileId), id -> new Object());
+        Object lock = locks.computeIfAbsent(fileId, id -> new Object());
 
         synchronized (lock) {
             Optional<File> file = fileRepository.findById(fileId);
